@@ -1,5 +1,3 @@
-import QRCode from 'qrcode';
-
 // Helper to ensure database tables exist in Cloudflare D1
 async function ensureTables(db) {
   await db.batch([
@@ -122,7 +120,7 @@ export async function onRequestPost(context) {
     const finalTitle = title ? title.trim() : 'Koleksi Teks';
 
     // Insert Share
-    const insertShare = await env.DB.prepare(`
+    await env.DB.prepare(`
       INSERT INTO shares (pin_code, title, created_at, expires_at, views_count)
       VALUES (?, ?, ?, ?, 0)
     `).bind(finalPin, finalTitle, now, expiresAt).run();
@@ -153,20 +151,8 @@ export async function onRequestPost(context) {
     const baseUrl = `${url.protocol}//${url.host}`;
     const shareUrl = `${baseUrl}/?pin=${finalPin}`;
 
-    // Generate QR Code
-    let qrDataUrl = '';
-    try {
-      qrDataUrl = await QRCode.toDataURL(shareUrl, {
-        margin: 2,
-        width: 250,
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff'
-        }
-      });
-    } catch {
-      qrDataUrl = '';
-    }
+    // Reliable zero-dependency QR Code URL
+    const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(shareUrl)}`;
 
     return new Response(JSON.stringify({
       success: true,

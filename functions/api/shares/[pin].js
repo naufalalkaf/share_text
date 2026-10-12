@@ -1,5 +1,3 @@
-import QRCode from 'qrcode';
-
 export async function onRequestGet(context) {
   const { params, request, env } = context;
   const pin = params.pin;
@@ -73,19 +71,8 @@ export async function onRequestGet(context) {
     const baseUrl = `${url.protocol}//${url.host}`;
     const shareUrl = `${baseUrl}/?pin=${share.pin_code}`;
 
-    let qrDataUrl = '';
-    try {
-      qrDataUrl = await QRCode.toDataURL(shareUrl, {
-        margin: 2,
-        width: 250,
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff'
-        }
-      });
-    } catch {
-      qrDataUrl = '';
-    }
+    // Reliable zero-dependency QR Code URL
+    const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(shareUrl)}`;
 
     return new Response(JSON.stringify({
       success: true,
