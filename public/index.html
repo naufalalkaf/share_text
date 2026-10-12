@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShareText - Bagikan Banyak Teks & Kode dengan Mudah via PIN</title>
+  <meta name="description" content="Aplikasi web modern untuk membagikan multiple teks, catatan, dan kode secara instan ke orang lain melalui kode PIN 6 digit atau link langsung.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark-theme">
+  <!-- Background Ambient Glows -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- Main Container -->
+  <div class="app-layout">
+    <!-- Navigation Bar -->
+    <header class="navbar" id="navbar">
+      <div class="nav-left">
+        <div class="brand" id="brand-logo">
+          <div class="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+              <path d="M6 6h10"></path>
+              <path d="M6 10h10"></path>
+              <path d="M6 14h6"></path>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <span class="brand-title">ShareText</span>
+            <span class="brand-badge">PRO</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="nav-center">
+        <button class="nav-tab active" id="tab-create" data-target="view-create">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"></path>
+          </svg>
+          <span>Buat & Bagikan</span>
+        </button>
+        <button class="nav-tab" id="tab-pin" data-target="view-pin">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Buka via PIN</span>
+        </button>
+        <button class="nav-tab" id="tab-history" data-target="modal-history">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>Riwayat</span>
+          <span class="history-badge" id="history-counter">0</span>
+        </button>
+      </nav>
+
+      <div class="nav-right">
+        <button class="icon-btn theme-toggle" id="btn-theme-toggle" title="Ganti Tema (Gelap/Terang)">
+          <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="content-container">
+      
+      <!-- ================= 1. VIEW CREATE ================= -->
+      <section class="app-view active" id="view-create">
+        <div class="hero-section">
+          <div class="hero-badge">
+            <span class="pulse-dot"></span>
+            Multi-Text Sharing Hub
+          </div>
+          <h1 class="hero-title">Bagikan Banyak Teks Sekaligus dengan Cepat</h1>
+          <p class="hero-desc">
+            Kumpulkan catatan, potongan kode, konfigurasi, atau pesan dalam kartu-kartu terpisah. Bagikan ke rekan Anda cukup menggunakan <strong>6 Digit PIN</strong> atau tautan langsung.
+          </p>
+        </div>
+
+        <div class="form-wrapper">
+          <!-- Session Header Config -->
+          <div class="session-meta-card">
+            <div class="meta-field">
+              <label for="input-collection-title" class="field-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+                </svg>
+                Judul Koleksi Teks
+              </label>
+              <input type="text" id="input-collection-title" class="text-input" placeholder="Contoh: Catatan Deployment & Kredensial UAT" maxlength="100">
+            </div>
+
+            <div class="meta-row">
+              <div class="meta-field">
+                <label for="select-expiry" class="field-label">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  Masa Berlaku
+                </label>
+                <div class="custom-select-wrapper">
+                  <select id="select-expiry" class="select-input">
+                    <option value="0">Selamanya (Tidak Kedaluwarsa)</option>
+                    <option value="1">1 Jam</option>
+                    <option value="6">6 Jam</option>
+                    <option value="24" selected>24 Jam (1 Hari)</option>
+                    <option value="72">3 Hari</option>
+                    <option value="168">7 Hari (1 Minggu)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="meta-field">
+                <label for="input-custom-pin" class="field-label">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  PIN Kustom (Opsional)
+                </label>
+                <input type="text" id="input-custom-pin" class="text-input uppercase" placeholder="Otomatis acak (mis: 839201)" maxlength="10">
+                <span class="field-hint">Kosongkan untuk otomatis mendapatkan 6 angka acak.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cards List Header -->
+          <div class="cards-header-bar">
+            <div class="cards-header-title">
+              <h2>Daftar Kartu Teks</h2>
+              <span class="badge-counter" id="active-card-count">1 Kartu</span>
+            </div>
+            <div class="cards-quick-actions">
+              <button type="button" class="btn-subtle" id="btn-paste-clipboard" title="Tempel teks cepat dari Clipboard">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect>
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                </svg>
+                <span>Tempel Cepat</span>
+              </button>
+              <button type="button" class="btn-subtle" id="btn-clear-all" title="Reset semua kartu">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18"></path>
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                </svg>
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Text Cards Container -->
+          <div class="cards-container" id="cards-container">
+            <!-- Dynamic cards injected here -->
+          </div>
+
+          <!-- Add Card Button -->
+          <button type="button" class="btn-add-card" id="btn-add-card">
+            <div class="plus-icon-circle">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </div>
+            <div class="btn-add-content">
+              <span class="btn-add-title">Tambah Kartu Teks Baru</span>
+              <span class="btn-add-sub">Tambahkan snippet kode, instruksi, atau catatan terpisah</span>
+            </div>
+          </button>
+
+          <!-- Publish Footer Action -->
+          <div class="publish-bar">
+            <div class="publish-info">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              <span>Semua teks tersimpan rapi dan dapat diakses siapa saja yang memiliki kode PIN.</span>
+            </div>
+            <button type="button" class="btn-primary-glow" id="btn-publish">
+              <span class="btn-label">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m22 2-7 20-4-9-9-4Z"></path>
+                  <path d="M22 2 11 13"></path>
+                </svg>
+                <span>Terbitkan & Dapatkan PIN</span>
+              </span>
+              <span class="btn-loader" style="display: none;">
+                <span class="spinner"></span>
+                <span>Memproses...</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 2. VIEW PIN ================= -->
+      <section class="app-view" id="view-pin">
+        <div class="pin-lookup-container">
+          <div class="pin-lookup-card">
+            <div class="pin-icon-header">
+              <div class="icon-orb">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              </div>
+            </div>
+            
+            <h2 class="pin-box-title">Masukkan Kode PIN Berbagi</h2>
+            <p class="pin-box-desc">Ketik 6 digit PIN yang diberikan oleh pengirim untuk membuka kumpulan teks.</p>
+
+            <!-- 6 PIN Input Boxes -->
+            <div class="pin-digits-group" id="pin-digits-group">
+              <input type="text" class="pin-digit-box" maxlength="1" data-index="0" autofocus inputmode="text" autocomplete="off">
+              <input type="text" class="pin-digit-box" maxlength="1" data-index="1" inputmode="text" autocomplete="off">
+              <input type="text" class="pin-digit-box" maxlength="1" data-index="2" inputmode="text" autocomplete="off">
+              <input type="text" class="pin-digit-box" maxlength="1" data-index="3" inputmode="text" autocomplete="off">
+              <input type="text" class="pin-digit-box" maxlength="1" data-index="4" inputmode="text" autocomplete="off">
+              <input type="text" class="pin-digit-box" maxlength="1" data-index="5" inputmode="text" autocomplete="off">
+            </div>
+
+            <div class="pin-helper-row">
+              <button type="button" class="btn-link" id="btn-paste-pin">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect>
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                </svg>
+                <span>Tempel dari Clipboard</span>
+              </button>
+            </div>
+
+            <button type="button" class="btn-primary-glow btn-full" id="btn-submit-pin">
+              <span class="btn-label">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14"></path>
+                  <path d="m12 5 7 7-7 7"></path>
+                </svg>
+                <span>Buka Koleksi Teks</span>
+              </span>
+              <span class="btn-loader" style="display: none;">
+                <span class="spinner"></span>
+                <span>Mencari...</span>
+              </span>
+            </button>
+
+            <!-- Quick Recent Access in PIN view -->
+            <div class="quick-recents" id="quick-recents-list" style="display: none;">
+              <span class="recents-label">Sesi Terakhir Anda:</span>
+              <div class="recents-chips" id="recents-chips-container"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 3. VIEW BOARD (SHARED VIEW) ================= -->
+      <section class="app-view" id="view-board">
+        <!-- Board Header Banner -->
+        <div class="board-header-banner">
+          <div class="board-info-top">
+            <div class="board-pin-badge" id="board-pin-badge" title="Klik untuk menyalin PIN">
+              <span class="pin-label-small">KODE PIN:</span>
+              <span class="pin-value-strong" id="board-pin-val">------</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+              </svg>
+            </div>
+            
+            <div class="board-badges">
+              <span class="meta-pill" id="board-cards-badge">0 Kartu Teks</span>
+              <span class="meta-pill" id="board-created-badge">Dibuat: -</span>
+              <span class="meta-pill" id="board-expiry-badge">Kedaluwarsa: -</span>
+              <span class="meta-pill" id="board-views-badge">0x Dilihat</span>
+            </div>
+          </div>
+
+          <h1 class="board-title" id="board-collection-title">Judul Koleksi Teks</h1>
+
+          <!-- Master Action Bar -->
+          <div class="board-actions-bar">
+            <div class="actions-left">
+              <button type="button" class="btn-action primary" id="btn-copy-all" title="Salin semua teks dari seluruh kartu">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+                </svg>
+                <span>Salin Semua Teks</span>
+              </button>
+              
+              <button type="button" class="btn-action" id="btn-download-all-txt" title="Unduh seluruh kartu ke file .txt">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Unduh File (.txt)</span>
+              </button>
+
+              <button type="button" class="btn-action" id="btn-download-all-md" title="Unduh format Markdown (.md)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <span>Unduh Markdown (.md)</span>
+              </button>
+            </div>
+
+            <div class="actions-right">
+              <button type="button" class="btn-action" id="btn-show-share-qr" title="Tampilkan Tautan & Kode QR">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="5" height="5" x="3" y="3" rx="1"></rect>
+                  <rect width="5" height="5" x="16" y="3" rx="1"></rect>
+                  <rect width="5" height="5" x="3" y="16" rx="1"></rect>
+                  <path d="M21 16h-3a2 2 0 0 0-2 2v3"></path>
+                  <path d="M21 21v.01"></path>
+                  <path d="M12 7v3a2 2 0 0 1-2 2H7"></path>
+                  <path d="M3 12h.01"></path>
+                  <path d="M12 3h.01"></path>
+                  <path d="M12 16v.01"></path>
+                  <path d="M16 12h1"></path>
+                  <path d="M21 12v.01"></path>
+                  <path d="M12 21v-1"></path>
+                </svg>
+                <span>Bagikan (QR / Link)</span>
+              </button>
+
+              <button type="button" class="btn-action outline" id="btn-new-collection">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Buat Teks Baru</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cards Board Grid -->
+        <div class="board-grid" id="board-grid-cards">
+          <!-- Cards injected here -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p>ShareText • Berbagi multiple text dan code snippet mudah & aman.</p>
+        <div class="footer-links">
+          <span>Engine: Node.js & SQLite Native</span>
+          <span>•</span>
+          <button type="button" class="link-clean" id="footer-new-link">Buat Sesi</button>
+          <span>•</span>
+          <button type="button" class="link-clean" id="footer-pin-link">Buka PIN</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ================= MODALS & POPUPS ================= -->
+
+  <!-- 1. SUCCESS / SHARE MODAL -->
+  <div class="modal-overlay" id="modal-success">
+    <div class="modal-card modal-success-card">
+      <button class="modal-close-btn" id="btn-close-success" title="Tutup">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="success-header">
+        <div class="success-badge-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <h2 class="modal-title">Teks Berhasil Diterbitkan!</h2>
+        <p class="modal-subtitle">Berikan kode PIN ini kepada penerima atau bagikan tautan langsung:</p>
+      </div>
+
+      <!-- Mega PIN Display -->
+      <div class="mega-pin-display">
+        <span class="mega-pin-label">KODE PIN PENERIMA</span>
+        <div class="mega-pin-code" id="modal-pin-number">------</div>
+        <button type="button" class="btn-copy-pin" id="btn-modal-copy-pin">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+          </svg>
+          <span id="copy-pin-text">Salin PIN</span>
+        </button>
+      </div>
+
+      <!-- QR Code & Link Section -->
+      <div class="share-options-box">
+        <div class="qr-preview-box">
+          <img id="modal-qr-image" src="" alt="QR Code Link" class="qr-image">
+          <span class="qr-hint">Scan via kamera HP</span>
+        </div>
+
+        <div class="link-share-box">
+          <label class="field-label">Tautan Langsung (Direct Link):</label>
+          <div class="copy-input-group">
+            <input type="text" id="modal-share-link" class="text-input" readonly>
+            <button type="button" class="btn-action primary" id="btn-modal-copy-link">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+              </svg>
+              <span>Salin</span>
+            </button>
+          </div>
+          <p class="modal-notice-text">
+            Penerima cukup mengunjungi website ini lalu mengetik kode PIN, atau cukup buka link di atas.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-footer-actions">
+        <button type="button" class="btn-primary-glow btn-full" id="btn-modal-view-now">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>Lihat Koleksi Teks Sekarang</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. HISTORY MODAL -->
+  <div class="modal-overlay" id="modal-history">
+    <div class="modal-card modal-history-card">
+      <button class="modal-close-btn" id="btn-close-history" title="Tutup">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="history-header">
+        <div class="icon-orb mini">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div class="history-title-group">
+          <h2 class="modal-title">Riwayat Sesi Saya</h2>
+          <p class="modal-subtitle">Daftar koleksi teks yang pernah Anda buat di peramban ini.</p>
+        </div>
+      </div>
+
+      <div class="history-list" id="history-items-container">
+        <!-- Rendered history items -->
+      </div>
+
+      <div class="history-footer">
+        <button type="button" class="btn-subtle" id="btn-clear-history">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+          </svg>
+          <span>Hapus Semua Riwayat</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. FOCUS / EXPAND TEXT MODAL -->
+  <div class="modal-overlay" id="modal-focus">
+    <div class="modal-card modal-focus-card">
+      <button class="modal-close-btn" id="btn-close-focus" title="Tutup">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="focus-header">
+        <div class="focus-title-group">
+          <span class="badge-tag" id="focus-card-type">Plain Text</span>
+          <h2 class="focus-card-title" id="focus-card-title">Judul Kartu</h2>
+          <span class="focus-card-stats" id="focus-card-stats">0 kata • 0 karakter</span>
+        </div>
+        <div class="focus-actions">
+          <button type="button" class="btn-action primary" id="btn-focus-copy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+            </svg>
+            <span id="focus-copy-label">Salin Teks</span>
+          </button>
+          <button type="button" class="btn-action" id="btn-focus-download">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Unduh (.txt)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="focus-body">
+        <pre class="focus-content-pre" id="focus-content-pre"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notification -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Main JavaScript File -->
+  <script src="js/app.js"></script>
+</body>
+</html>
