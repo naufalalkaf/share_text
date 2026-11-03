@@ -440,7 +440,16 @@
       <!-- QR Code & Link Section -->
       <div class="share-options-box">
         <div class="qr-preview-box">
-          <img id="modal-qr-image" src="" alt="QR Code Link" class="qr-image">
+          <img id="modal-qr-image" src="" alt="QR Code Link" class="qr-image" style="cursor: pointer;" title="Klik untuk menampilkan QR Code Layar Penuh">
+          <button type="button" class="btn-subtle" id="btn-fullscreen-qr" title="Tampilkan QR Code Layar Penuh" style="margin-top: 0.35rem; font-size: 0.72rem; padding: 0.25rem 0.55rem; width: 100%; justify-content: center;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"/>
+              <polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/>
+              <line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+            <span>Preview Layar Penuh</span>
+          </button>
           <span class="qr-hint">Scan via kamera HP</span>
         </div>
 
@@ -470,6 +479,51 @@
           </svg>
           <span>Lihat Koleksi Teks Sekarang</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1.5. FULLSCREEN QR CODE MODAL -->
+  <div class="modal-overlay" id="modal-qr-fullscreen">
+    <div class="modal-card modal-qr-fullscreen-card">
+      <button class="modal-close-btn" id="btn-close-qr-fullscreen" title="Tutup Layar Penuh">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="qr-fullscreen-content">
+        <div class="qr-fullscreen-badge">
+          <span class="pulse-dot"></span>
+          Scan dengan Kamera HP
+        </div>
+        <h2 class="qr-fullscreen-title" id="qr-fullscreen-title">Koleksi Teks</h2>
+        
+        <div class="qr-fullscreen-img-box">
+          <img id="qr-fullscreen-img" src="" alt="QR Code Layar Penuh" class="qr-fullscreen-img">
+        </div>
+
+        <div class="qr-fullscreen-pin-box">
+          <span class="qr-fs-pin-label">KODE PIN:</span>
+          <span class="qr-fs-pin-val" id="qr-fullscreen-pin">------</span>
+        </div>
+
+        <p class="qr-fullscreen-hint">Arahkan kamera smartphone ke kode QR di atas untuk membuka teks secara instan.</p>
+
+        <div class="qr-fullscreen-actions">
+          <button type="button" class="btn-action primary" id="btn-download-qr-img">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Unduh Gambar QR</span>
+          </button>
+          <button type="button" class="btn-action" id="btn-close-qr-fullscreen-sub">
+            <span>Tutup</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

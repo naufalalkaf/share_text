@@ -92,9 +92,19 @@ const elements = {
   btnModalCopyPin: document.getElementById('btn-modal-copy-pin'),
   copyPinText: document.getElementById('copy-pin-text'),
   modalQrImage: document.getElementById('modal-qr-image'),
+  btnFullscreenQr: document.getElementById('btn-fullscreen-qr'),
   modalShareLink: document.getElementById('modal-share-link'),
   btnModalCopyLink: document.getElementById('btn-modal-copy-link'),
   btnModalViewNow: document.getElementById('btn-modal-view-now'),
+
+  // Fullscreen QR Modal
+  modalQrFullscreen: document.getElementById('modal-qr-fullscreen'),
+  btnCloseQrFullscreen: document.getElementById('btn-close-qr-fullscreen'),
+  btnCloseQrFullscreenSub: document.getElementById('btn-close-qr-fullscreen-sub'),
+  qrFullscreenTitle: document.getElementById('qr-fullscreen-title'),
+  qrFullscreenImg: document.getElementById('qr-fullscreen-img'),
+  qrFullscreenPin: document.getElementById('qr-fullscreen-pin'),
+  btnDownloadQrImg: document.getElementById('btn-download-qr-img'),
 
   modalHistory: document.getElementById('modal-history'),
   btnCloseHistory: document.getElementById('btn-close-history'),
@@ -694,7 +704,11 @@ elements.btnPublish.addEventListener('click', async () => {
 });
 
 // Success Modal Logic
+let lastShareData = null;
+let currentQrData = null;
+
 function openSuccessModal(data) {
+  lastShareData = data;
   elements.modalPinNumber.textContent = formatPinDisplay(data.pin);
   elements.modalShareLink.value = data.shareUrl;
   elements.modalQrImage.src = data.qrCode;
@@ -705,6 +719,51 @@ function openSuccessModal(data) {
   elements.btnModalViewNow.onclick = () => {
     elements.modalSuccess.classList.remove('active');
     loadShareByPin(data.pin);
+  };
+}
+
+// Fullscreen QR Modal Logic
+function openFullscreenQr(qrSrc, pin, title) {
+  currentQrData = { qrSrc, pin, title };
+  if (elements.qrFullscreenImg) elements.qrFullscreenImg.src = qrSrc;
+  if (elements.qrFullscreenPin) elements.qrFullscreenPin.textContent = formatPinDisplay(pin);
+  if (elements.qrFullscreenTitle) elements.qrFullscreenTitle.textContent = title || 'Koleksi Teks';
+  if (elements.modalQrFullscreen) elements.modalQrFullscreen.classList.add('active');
+}
+
+function closeFullscreenQr() {
+  if (elements.modalQrFullscreen) elements.modalQrFullscreen.classList.remove('active');
+}
+
+if (elements.btnCloseQrFullscreen) elements.btnCloseQrFullscreen.onclick = closeFullscreenQr;
+if (elements.btnCloseQrFullscreenSub) elements.btnCloseQrFullscreenSub.onclick = closeFullscreenQr;
+
+if (elements.btnFullscreenQr) {
+  elements.btnFullscreenQr.onclick = () => {
+    if (lastShareData) {
+      openFullscreenQr(lastShareData.qrCode, lastShareData.pin, lastShareData.title);
+    }
+  };
+}
+
+if (elements.modalQrImage) {
+  elements.modalQrImage.onclick = () => {
+    if (lastShareData) {
+      openFullscreenQr(lastShareData.qrCode, lastShareData.pin, lastShareData.title);
+    }
+  };
+}
+
+if (elements.btnDownloadQrImg) {
+  elements.btnDownloadQrImg.onclick = () => {
+    if (!currentQrData) return;
+    const a = document.createElement('a');
+    a.href = currentQrData.qrSrc;
+    a.download = `qrcode-pin-${currentQrData.pin}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('Gambar QR Code berhasil diunduh.', 'success');
   };
 }
 
@@ -1302,7 +1361,7 @@ if (elements.btnExportHistory) {
 }
 
 // Close modals when clicking outside card
-[elements.modalSuccess, elements.modalHistory, elements.modalFocus].forEach(modal => {
+[elements.modalSuccess, elements.modalHistory, elements.modalFocus, elements.modalQrFullscreen].forEach(modal => {
   if (modal) {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.classList.remove('active');
@@ -1316,6 +1375,7 @@ window.addEventListener('keydown', (e) => {
     elements.modalSuccess?.classList.remove('active');
     elements.modalHistory?.classList.remove('active');
     elements.modalFocus?.classList.remove('active');
+    elements.modalQrFullscreen?.classList.remove('active');
   }
 });
 
