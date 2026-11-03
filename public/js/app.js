@@ -1,5 +1,5 @@
 /**
- * ShareText - Client Application Logic
+ * ShareText - Client Application Logic with Cloud Multi-Device Sync
  */
 
 // Application State
@@ -8,7 +8,10 @@ const state = {
   currentShare: null,
   activeTab: 'view-create',
   theme: localStorage.getItem('sharetext_theme') || 'dark',
-  history: JSON.parse(localStorage.getItem('sharetext_history') || '[]')
+  history: JSON.parse(localStorage.getItem('sharetext_history') || '[]'),
+  account: JSON.parse(localStorage.getItem('sharetext_account') || 'null'),
+  cloudHistory: [],
+  historyTab: 'cloud' // 'cloud' | 'local'
 };
 
 // DOM Element References
@@ -18,6 +21,36 @@ const elements = {
   tabs: document.querySelectorAll('.nav-tab'),
   views: document.querySelectorAll('.app-view'),
   historyCounter: document.getElementById('history-counter'),
+
+  // Cloud Sync & Account UI
+  tabAccount: document.getElementById('tab-account'),
+  navAccountLabel: document.getElementById('nav-account-label'),
+  syncStatusIndicator: document.getElementById('sync-status-indicator'),
+  syncIndicatorText: document.getElementById('sync-indicator-text'),
+  btnQuickConnect: document.getElementById('btn-quick-connect'),
+
+  btnTabCloud: document.getElementById('btn-tab-cloud'),
+  btnTabLocal: document.getElementById('btn-tab-local'),
+  panelCloudSync: document.getElementById('panel-cloud-sync'),
+  panelLocalSync: document.getElementById('panel-local-sync'),
+
+  cloudConnectBox: document.getElementById('cloud-connect-box'),
+  inputSyncUser: document.getElementById('input-sync-user'),
+  inputSyncPass: document.getElementById('input-sync-pass'),
+  btnSubmitConnect: document.getElementById('btn-submit-connect'),
+
+  cloudConnectedView: document.getElementById('cloud-connected-view'),
+  connectedUserDisplay: document.getElementById('connected-user-display'),
+  btnToggleClaim: document.getElementById('btn-toggle-claim'),
+  btnRefreshCloud: document.getElementById('btn-refresh-cloud'),
+  btnDisconnectCloud: document.getElementById('btn-disconnect-cloud'),
+
+  claimPinBox: document.getElementById('claim-pin-box'),
+  inputClaimPin: document.getElementById('input-claim-pin'),
+  btnSubmitClaim: document.getElementById('btn-submit-claim'),
+  cloudHistoryItemsContainer: document.getElementById('cloud-history-items-container'),
+
+  btnExportHistory: document.getElementById('btn-export-history'),
 
   // Create View
   inputCollectionTitle: document.getElementById('input-collection-title'),
@@ -87,7 +120,7 @@ const elements = {
 // -----------------------------------------------------------------------------
 // Toast Notification Utility
 // -----------------------------------------------------------------------------
-function showToast(message, type = 'info', duration = 3000) {
+function showToast(message, type = 'info', duration = 3200) {
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
 
@@ -146,12 +179,210 @@ elements.themeToggle.addEventListener('click', () => {
 });
 
 // -----------------------------------------------------------------------------
+// Account & Cloud Sync State Management
+// -----------------------------------------------------------------------------
+function updateAccountUI() {
+  if (state.account && state.account.username) {
+    if (elements.navAccountLabel) {
+      elements.navAccountLabel.textContent = `👤 ${state.account.username}`;
+    }
+    if (elements.syncStatusIndicator) {
+      elements.syncStatusIndicator.classList.remove('not-synced');
+      elements.syncIndicatorText.innerHTML = `Tersinkronisasi ke Cloud: <strong>${escapeHtml(state.account.username)}</strong> (Teks otomatis tersimpan di semua perangkat Anda)`;
+    }
+    if (elements.cloudConnectBox) elements.cloudConnectBox.style.display = 'none';
+    if (elements.cloudConnectedView) elements.cloudConnectedView.style.display = 'block';
+    if (elements.connectedUserDisplay) elements.connectedUserDisplay.textContent = state.account.username;
+  } else {
+    if (elements.navAccountLabel) {
+      elements.navAccountLabel.textContent = 'Cloud Sync';
+    }
+    if (elements.syncStatusIndicator) {
+      elements.syncStatusIndicator.classList.add('not-synced');
+      elements.syncIndicatorText.innerHTML = `Belum terhubung ke Akun Cloud. <button type="button" class="btn-link" id="btn-quick-connect" style="text-decoration: underline; margin-left: 4px;">Sambungkan Kunci Pribadi</button>`;
+      const quickBtn = document.getElementById('btn-quick-connect');
+      if (quickBtn) quickBtn.onclick = () => openHistoryModal('cloud');
+    }
+    if (elements.cloudConnectBox) elements.cloudConnectBox.style.display = 'block';
+    if (elements.cloudConnectedView) elements.cloudConnectedView.style.display = 'none';
+  }
+}
+
+async function connectAccount(username, password) {
+  if (!username || !username.trim()) {
+    showToast('Kunci Akun / Username wajib diisi', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username.trim(),
+        password: password ? password.trim() : ''
+      })
+    });
+
+    const result = await res.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Gagal menyambungkan kunci akun.');
+    }
+
+    state.account = {
+      username: result.data.username,
+      password: password ? password.trim() : ''
+    };
+    localStorage.setItem('sharetext_account', JSON.stringify(state.account));
+
+    updateAccountUI();
+    showToast(`Berhasil tersambung ke akun "${result.data.username}"!`, 'success');
+    await loadCloudHistory();
+
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function disconnectAccount() {
+  if (confirm(`Putuskan sambungan dari akun "${state.account?.username}" di perangkat ini?`)) {
+    state.account = null;
+    state.cloudHistory = [];
+    localStorage.removeItem('sharetext_account');
+    updateAccountUI();
+    renderCloudHistoryList();
+    showToast('Sambungan akun diputuskan dari perangkat ini.', 'info');
+  }
+}
+
+async function loadCloudHistory() {
+  if (!state.account || !state.account.username) return;
+
+  const container = elements.cloudHistoryItemsContainer;
+  if (container) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <span class="spinner" style="border-top-color: var(--primary);"></span>
+        <p style="margin-top: 0.5rem;">Mengambil riwayat dari Cloud database...</p>
+      </div>
+    `;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      username: state.account.username,
+      password: state.account.password || ''
+    });
+
+    const res = await fetch(`/api/user/shares?${params.toString()}`);
+    const result = await res.json();
+
+    if (!result.success) {
+      throw new Error(result.message || 'Gagal memuat riwayat cloud');
+    }
+
+    state.cloudHistory = result.data.shares || [];
+    renderCloudHistoryList();
+
+  } catch (err) {
+    showToast(err.message, 'error');
+    if (container) {
+      container.innerHTML = `
+        <div class="history-empty-placeholder">
+          <p style="color: #ef4444;">Gagal memuat: ${escapeHtml(err.message)}</p>
+        </div>
+      `;
+    }
+  }
+}
+
+function renderCloudHistoryList() {
+  const container = elements.cloudHistoryItemsContainer;
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (state.cloudHistory.length === 0) {
+    container.innerHTML = `
+      <div class="history-empty-placeholder">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 0.5rem; opacity: 0.4;">
+          <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+        </svg>
+        <p>Belum ada teks yang tersinkronisasi di akun ini.</p>
+        <p style="font-size: 0.78rem; opacity: 0.7; margin-top: 0.25rem;">Buat teks baru atau klik "+ Tautkan PIN Lama" untuk menambahkan teks yang pernah dibuat sebelumnya.</p>
+      </div>
+    `;
+    return;
+  }
+
+  state.cloudHistory.forEach(item => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'history-item';
+    itemEl.innerHTML = `
+      <div class="history-item-left">
+        <span class="history-pin">${formatPinDisplay(item.pin)}</span>
+        <div class="history-details">
+          <span class="history-item-title">${escapeHtml(item.title || 'Koleksi Teks')}</span>
+          <span class="history-item-date">${item.cardCount || 1} kartu • ${formatRelativeTime(item.createdAt)} • ${item.viewsCount || 0}x dilihat</span>
+        </div>
+      </div>
+      <div class="history-item-actions">
+        <button type="button" class="btn-action primary btn-history-open" title="Buka Koleksi Teks">
+          <span>Buka</span>
+        </button>
+      </div>
+    `;
+
+    itemEl.querySelector('.btn-history-open').addEventListener('click', () => {
+      elements.modalHistory.classList.remove('active');
+      loadShareByPin(item.pin);
+    });
+
+    container.appendChild(itemEl);
+  });
+}
+
+async function claimExistingPin(pin) {
+  if (!state.account || !state.account.username) {
+    showToast('Silakan hubungkan akun terlebih dahulu.', 'error');
+    return;
+  }
+  if (!pin || !pin.trim()) {
+    showToast('Masukkan kode PIN yang ingin ditautkan.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/user/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.account.username,
+        password: state.account.password || '',
+        pin: pin.trim().toUpperCase()
+      })
+    });
+
+    const result = await res.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Gagal menautkan PIN');
+    }
+
+    showToast(result.message || 'PIN berhasil ditautkan ke akun Anda!', 'success');
+    elements.inputClaimPin.value = '';
+    elements.claimPinBox.style.display = 'none';
+    await loadCloudHistory();
+
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Tab & View Switching
 // -----------------------------------------------------------------------------
 function switchTab(viewId) {
-  // If target is modal-history, open modal instead of hiding main views
   if (viewId === 'modal-history') {
-    openHistoryModal();
+    openHistoryModal('cloud');
     return;
   }
 
@@ -183,15 +414,9 @@ elements.tabs.forEach(tab => {
   });
 });
 
-if (elements.footerNewLink) {
-  elements.footerNewLink.addEventListener('click', () => switchTab('view-create'));
-}
-if (elements.footerPinLink) {
-  elements.footerPinLink.addEventListener('click', () => switchTab('view-pin'));
-}
-if (elements.brandLogo) {
-  elements.brandLogo.addEventListener('click', () => switchTab('view-create'));
-}
+if (elements.footerNewLink) elements.footerNewLink.onclick = () => switchTab('view-create');
+if (elements.footerPinLink) elements.footerPinLink.onclick = () => switchTab('view-pin');
+if (elements.brandLogo) elements.brandLogo.onclick = () => switchTab('view-create');
 
 // -----------------------------------------------------------------------------
 // Card Editor Management (View Create)
@@ -262,7 +487,6 @@ function renderEditorCard(card, index) {
     </div>
   `;
 
-  // Event Listeners for this card
   const titleInput = cardEl.querySelector('.card-title-input');
   const langSelect = cardEl.querySelector('.lang-select');
   const textarea = cardEl.querySelector('.card-textarea');
@@ -285,14 +509,8 @@ function renderEditorCard(card, index) {
     card.content = text;
   }
 
-  titleInput.addEventListener('input', () => {
-    card.title = titleInput.value;
-  });
-
-  langSelect.addEventListener('change', () => {
-    card.language = langSelect.value;
-  });
-
+  titleInput.addEventListener('input', () => { card.title = titleInput.value; });
+  langSelect.addEventListener('change', () => { card.language = langSelect.value; });
   textarea.addEventListener('input', () => {
     updateStats();
     autoResizeTextarea(textarea);
@@ -371,7 +589,6 @@ elements.btnAddCard.addEventListener('click', () => {
   });
 });
 
-// Paste from Clipboard to card
 elements.btnPasteClipboard.addEventListener('click', async () => {
   try {
     const text = await navigator.clipboard.readText();
@@ -389,7 +606,6 @@ elements.btnPasteClipboard.addEventListener('click', async () => {
   }
 });
 
-// Clear All Cards
 elements.btnClearAll.addEventListener('click', () => {
   if (confirm('Apakah Anda yakin ingin mengosongkan semua kartu teks?')) {
     state.cards = [];
@@ -408,14 +624,12 @@ elements.btnPublish.addEventListener('click', async () => {
   const expiryHours = Number(elements.selectExpiry.value);
   const customPin = elements.inputCustomPin.value.trim().toUpperCase();
 
-  // Validate cards
   const validCards = state.cards.filter(c => c && (c.content.trim() || c.title.trim()));
   if (validCards.length === 0) {
     showToast('Harap isi setidaknya satu kartu teks sebelum menerbitkan.', 'error');
     return;
   }
 
-  // Set loading UI
   const btnLabel = elements.btnPublish.querySelector('.btn-label');
   const btnLoader = elements.btnPublish.querySelector('.btn-loader');
   elements.btnPublish.disabled = true;
@@ -423,26 +637,31 @@ elements.btnPublish.addEventListener('click', async () => {
   btnLoader.style.display = 'inline-flex';
 
   try {
+    const payload = {
+      title: title || 'Koleksi Teks',
+      expiryHours,
+      pinCode: customPin || undefined,
+      cards: state.cards.map((c, i) => ({
+        title: c.title.trim() || `Teks #${i + 1}`,
+        content: c.content,
+        language: c.language
+      }))
+    };
+
+    // Attach Cloud Account Sync if connected
+    if (state.account && state.account.username) {
+      payload.syncKey = state.account.username;
+      payload.syncPassword = state.account.password || '';
+    }
+
     const response = await fetch('/api/shares', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: title || 'Koleksi Teks',
-        expiryHours,
-        pinCode: customPin || undefined,
-        cards: state.cards.map((c, i) => ({
-          title: c.title.trim() || `Teks #${i + 1}`,
-          content: c.content,
-          language: c.language
-        }))
-      })
+      body: JSON.stringify(payload)
     });
 
     const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.message || 'Gagal membuat sesi');
-    }
+    if (!result.success) throw new Error(result.message || 'Gagal membuat sesi');
 
     const data = result.data;
 
@@ -456,9 +675,14 @@ elements.btnPublish.addEventListener('click', async () => {
       shareUrl: data.shareUrl
     });
 
-    // Show Success Modal
+    // Refresh cloud history in background
+    if (state.account) {
+      loadCloudHistory();
+    }
+
     openSuccessModal(data);
-    showToast('Teks berhasil diterbitkan!', 'success');
+    const syncMsg = data.syncedTo ? ` & tersinkron ke akun "${data.syncedTo}"` : '';
+    showToast(`Teks berhasil diterbitkan${syncMsg}!`, 'success');
 
   } catch (err) {
     showToast(err.message || 'Terjadi kesalahan sistem.', 'error');
@@ -494,10 +718,8 @@ elements.btnModalCopyPin.addEventListener('click', async () => {
     await navigator.clipboard.writeText(rawPin);
     elements.copyPinText.textContent = 'Tersalin! ✅';
     showToast(`PIN ${rawPin} disalin ke clipboard!`, 'success');
-    setTimeout(() => {
-      elements.copyPinText.textContent = 'Salin PIN';
-    }, 2500);
-  } catch (err) {
+    setTimeout(() => { elements.copyPinText.textContent = 'Salin PIN'; }, 2500);
+  } catch {
     showToast('Gagal menyalin PIN', 'error');
   }
 });
@@ -507,16 +729,14 @@ elements.btnModalCopyLink.addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(link);
     showToast('Tautan langsung berhasil disalin!', 'success');
-  } catch (err) {
+  } catch {
     showToast('Gagal menyalin tautan', 'error');
   }
 });
 
 function formatPinDisplay(pin) {
   if (!pin) return '';
-  if (pin.length === 6) {
-    return `${pin.slice(0, 3)} ${pin.slice(3)}`;
-  }
+  if (pin.length === 6) return `${pin.slice(0, 3)} ${pin.slice(3)}`;
   return pin;
 }
 
@@ -524,14 +744,12 @@ function formatPinDisplay(pin) {
 // PIN Input Lookup View
 // -----------------------------------------------------------------------------
 elements.pinDigitBoxes.forEach((box, idx) => {
-  box.addEventListener('input', (e) => {
+  box.addEventListener('input', () => {
     const val = box.value.toUpperCase();
     box.value = val;
-
     if (val && idx < elements.pinDigitBoxes.length - 1) {
       elements.pinDigitBoxes[idx + 1].focus();
     }
-
     checkAutoSubmitPin();
   });
 
@@ -557,9 +775,8 @@ function handlePastedPin(rawText) {
     elements.pinDigitBoxes[i].value = cleaned[i] || '';
   }
   const nextEmpty = [...elements.pinDigitBoxes].find(b => !b.value);
-  if (nextEmpty) {
-    nextEmpty.focus();
-  } else {
+  if (nextEmpty) nextEmpty.focus();
+  else {
     elements.pinDigitBoxes[elements.pinDigitBoxes.length - 1].focus();
     submitPinForm();
   }
@@ -569,24 +786,20 @@ elements.btnPastePin.addEventListener('click', async () => {
   try {
     const text = await navigator.clipboard.readText();
     handlePastedPin(text);
-  } catch (err) {
+  } catch {
     showToast('Tidak dapat membaca clipboard.', 'error');
   }
 });
 
 function getEnteredPin() {
   let pin = '';
-  elements.pinDigitBoxes.forEach(b => {
-    pin += b.value.trim().toUpperCase();
-  });
+  elements.pinDigitBoxes.forEach(b => { pin += b.value.trim().toUpperCase(); });
   return pin;
 }
 
 function checkAutoSubmitPin() {
   const pin = getEnteredPin();
-  if (pin.length === elements.pinDigitBoxes.length) {
-    submitPinForm();
-  }
+  if (pin.length === elements.pinDigitBoxes.length) submitPinForm();
 }
 
 function submitPinForm() {
@@ -607,7 +820,6 @@ async function loadShareByPin(pin) {
   const cleanPin = pin.trim().toUpperCase();
   if (!cleanPin) return;
 
-  // Visual Loading
   const btnLabel = elements.btnSubmitPin.querySelector('.btn-label');
   const btnLoader = elements.btnSubmitPin.querySelector('.btn-loader');
   if (btnLabel && btnLoader) {
@@ -627,7 +839,7 @@ async function loadShareByPin(pin) {
     state.currentShare = result.data;
     renderBoardView(result.data);
 
-    // Save to history as recently viewed
+    // Save to local history
     addToHistory({
       pin: result.data.pin,
       title: result.data.title,
@@ -637,7 +849,6 @@ async function loadShareByPin(pin) {
       shareUrl: result.data.shareUrl
     });
 
-    // Update URL hash/query without reload
     const url = new URL(window.location);
     url.searchParams.set('pin', cleanPin);
     window.history.pushState({}, '', url);
@@ -678,7 +889,6 @@ function renderBoardView(shareData) {
     elements.boardExpiryBadge.textContent = 'Permanen (Tidak Kedaluwarsa)';
   }
 
-  // Click on PIN badge to copy
   elements.boardPinBadge.onclick = async () => {
     try {
       await navigator.clipboard.writeText(shareData.pin);
@@ -688,7 +898,6 @@ function renderBoardView(shareData) {
     }
   };
 
-  // Render cards
   elements.boardGridCards.innerHTML = '';
   shareData.cards.forEach((card, idx) => {
     const cardEl = renderDisplayCard(card, idx);
@@ -745,7 +954,6 @@ function renderDisplayCard(card, index) {
     </div>
   `;
 
-  // Card Event Listeners
   const btnCopy = cardEl.querySelector('.btn-card-copy');
   const copyLabel = cardEl.querySelector('.copy-text-label');
   const btnDownload = cardEl.querySelector('.btn-card-download');
@@ -772,9 +980,7 @@ function renderDisplayCard(card, index) {
     showToast(`Mengunduh ${filename}`, 'info');
   });
 
-  btnFocus.addEventListener('click', () => {
-    openFocusModal(card);
-  });
+  btnFocus.addEventListener('click', () => { openFocusModal(card); });
 
   return cardEl;
 }
@@ -884,9 +1090,7 @@ elements.btnFocusCopy.addEventListener('click', async () => {
     await navigator.clipboard.writeText(currentFocusCard.content);
     elements.focusCopyLabel.textContent = 'Disalin! ✅';
     showToast('Teks disalin ke clipboard!', 'success');
-    setTimeout(() => {
-      elements.focusCopyLabel.textContent = 'Salin Teks';
-    }, 2000);
+    setTimeout(() => { elements.focusCopyLabel.textContent = 'Salin Teks'; }, 2000);
   } catch {
     showToast('Gagal menyalin teks', 'error');
   }
@@ -900,13 +1104,12 @@ elements.btnFocusDownload.addEventListener('click', () => {
 });
 
 // -----------------------------------------------------------------------------
-// Local Storage History Management
+// History Modal & Cloud Sync Operations
 // -----------------------------------------------------------------------------
 function addToHistory(item) {
-  // Remove duplicate by pin
   state.history = state.history.filter(h => h.pin !== item.pin);
   state.history.unshift(item);
-  if (state.history.length > 30) state.history.pop();
+  if (state.history.length > 50) state.history.pop();
 
   localStorage.setItem('sharetext_history', JSON.stringify(state.history));
   updateHistoryBadge();
@@ -917,8 +1120,26 @@ function updateHistoryBadge() {
   elements.historyCounter.textContent = state.history.length;
 }
 
-function openHistoryModal() {
-  renderHistoryList();
+function setHistoryTab(tab) {
+  state.historyTab = tab;
+  if (tab === 'cloud') {
+    elements.btnTabCloud.classList.add('active');
+    elements.btnTabLocal.classList.remove('active');
+    elements.panelCloudSync.style.display = 'block';
+    elements.panelLocalSync.style.display = 'none';
+    if (state.account) loadCloudHistory();
+  } else {
+    elements.btnTabCloud.classList.remove('active');
+    elements.btnTabLocal.classList.add('active');
+    elements.panelCloudSync.style.display = 'none';
+    elements.panelLocalSync.style.display = 'block';
+    renderLocalHistoryList();
+  }
+}
+
+function openHistoryModal(defaultTab = 'cloud') {
+  setHistoryTab(defaultTab);
+  updateAccountUI();
   elements.modalHistory.classList.add('active');
 }
 
@@ -926,7 +1147,52 @@ elements.btnCloseHistory.addEventListener('click', () => {
   elements.modalHistory.classList.remove('active');
 });
 
-function renderHistoryList() {
+// History Tab buttons
+if (elements.btnTabCloud) elements.btnTabCloud.onclick = () => setHistoryTab('cloud');
+if (elements.btnTabLocal) elements.btnTabLocal.onclick = () => setHistoryTab('local');
+if (elements.tabAccount) elements.tabAccount.onclick = () => openHistoryModal('cloud');
+
+// Cloud Connect Form Submit
+if (elements.btnSubmitConnect) {
+  elements.btnSubmitConnect.onclick = () => {
+    const user = elements.inputSyncUser.value;
+    const pass = elements.inputSyncPass.value;
+    connectAccount(user, pass);
+  };
+}
+
+// Disconnect Account
+if (elements.btnDisconnectCloud) {
+  elements.btnDisconnectCloud.onclick = disconnectAccount;
+}
+
+// Refresh Cloud
+if (elements.btnRefreshCloud) {
+  elements.btnRefreshCloud.onclick = () => {
+    loadCloudHistory();
+    showToast('Riwayat Cloud diperbarui.', 'info');
+  };
+}
+
+// Toggle Claim Box
+if (elements.btnToggleClaim) {
+  elements.btnToggleClaim.onclick = () => {
+    const box = elements.claimPinBox;
+    box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+    if (box.style.display === 'flex') elements.inputClaimPin.focus();
+  };
+}
+
+// Submit Claim Old PIN
+if (elements.btnSubmitClaim) {
+  elements.btnSubmitClaim.onclick = () => {
+    const pin = elements.inputClaimPin.value;
+    claimExistingPin(pin);
+  };
+}
+
+// Render Local History
+function renderLocalHistoryList() {
   elements.historyItemsContainer.innerHTML = '';
 
   if (state.history.length === 0) {
@@ -936,7 +1202,7 @@ function renderHistoryList() {
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12 6 12 12 16 14"/>
         </svg>
-        <p>Belum ada riwayat sesi yang dibuat di peramban ini.</p>
+        <p>Belum ada riwayat sesi lokal di peramban ini.</p>
       </div>
     `;
     return;
@@ -957,7 +1223,7 @@ function renderHistoryList() {
         <button type="button" class="btn-action primary btn-history-open" title="Buka Sesi">
           <span>Buka</span>
         </button>
-        <button type="button" class="btn-subtle btn-history-del" title="Hapus dari Riwayat">
+        <button type="button" class="btn-subtle btn-history-del" title="Hapus dari Riwayat Lokal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -975,9 +1241,9 @@ function renderHistoryList() {
       state.history = state.history.filter(h => h.pin !== item.pin);
       localStorage.setItem('sharetext_history', JSON.stringify(state.history));
       updateHistoryBadge();
-      renderHistoryList();
+      renderLocalHistoryList();
       renderHistoryChips();
-      showToast('Item riwayat dihapus.', 'info');
+      showToast('Item riwayat lokal dihapus.', 'info');
     });
 
     elements.historyItemsContainer.appendChild(itemEl);
@@ -1001,39 +1267,55 @@ function renderHistoryChips() {
       <span>PIN: ${item.pin}</span>
       <span style="opacity: 0.6;">(${escapeHtml(item.title ? (item.title.slice(0, 15) + (item.title.length > 15 ? '...' : '')) : 'Koleksi')})</span>
     `;
-    chip.addEventListener('click', () => {
-      loadShareByPin(item.pin);
-    });
+    chip.addEventListener('click', () => { loadShareByPin(item.pin); });
     elements.recentsChipsContainer.appendChild(chip);
   });
 }
 
+// Clear local history
 elements.btnClearHistory.addEventListener('click', () => {
-  if (confirm('Hapus seluruh riwayat tersimpan di peramban ini?')) {
+  if (confirm('Hapus seluruh riwayat lokal di peramban ini? (Data Cloud tidak terhapus)')) {
     state.history = [];
     localStorage.removeItem('sharetext_history');
     updateHistoryBadge();
-    renderHistoryList();
+    renderLocalHistoryList();
     renderHistoryChips();
-    showToast('Semua riwayat telah dihapus.', 'info');
+    showToast('Semua riwayat lokal telah dihapus.', 'info');
   }
 });
 
+// Export history as JSON
+if (elements.btnExportHistory) {
+  elements.btnExportHistory.onclick = () => {
+    const backupData = {
+      app: 'ShareText',
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      account: state.account ? { username: state.account.username } : null,
+      history: state.history,
+      cloudHistory: state.cloudHistory
+    };
+    const content = JSON.stringify(backupData, null, 2);
+    downloadStringAsFile(content, `sharetext-backup-${Date.now()}.json`, 'application/json');
+    showToast('Cadangan riwayat berhasil diunduh.', 'success');
+  };
+}
+
 // Close modals when clicking outside card
 [elements.modalSuccess, elements.modalHistory, elements.modalFocus].forEach(modal => {
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('active');
-    }
-  });
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.remove('active');
+    });
+  }
 });
 
-// Escape key to close any active modal
+// Escape key to close active modal
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    elements.modalSuccess.classList.remove('active');
-    elements.modalHistory.classList.remove('active');
-    elements.modalFocus.classList.remove('active');
+    elements.modalSuccess?.classList.remove('active');
+    elements.modalHistory?.classList.remove('active');
+    elements.modalFocus?.classList.remove('active');
   }
 });
 
@@ -1078,6 +1360,12 @@ function initApp() {
   applyTheme(state.theme);
   updateHistoryBadge();
   renderHistoryChips();
+  updateAccountUI();
+
+  // If already logged in, load cloud history in background
+  if (state.account) {
+    loadCloudHistory();
+  }
 
   // Initial card in editor
   addNewCard();
@@ -1090,5 +1378,4 @@ function initApp() {
   }
 }
 
-// Run app
 document.addEventListener('DOMContentLoaded', initApp);

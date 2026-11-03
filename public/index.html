@@ -66,6 +66,12 @@
           <span>Riwayat</span>
           <span class="history-badge" id="history-counter">0</span>
         </button>
+        <button class="nav-tab" id="tab-account" data-target="modal-history" title="Sinkronisasi Riwayat Antar-Perangkat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+          </svg>
+          <span id="nav-account-label">Cloud Sync</span>
+        </button>
       </nav>
 
       <div class="nav-right">
@@ -107,6 +113,11 @@
         <div class="form-wrapper">
           <!-- Session Header Config -->
           <div class="session-meta-card">
+            <div class="sync-status-indicator not-synced" id="sync-status-indicator">
+              <span class="sync-indicator-dot"></span>
+              <span id="sync-indicator-text">Belum terhubung ke Akun Cloud. <button type="button" class="btn-link" id="btn-quick-connect" style="text-decoration: underline; margin-left: 4px;">Sambungkan Kunci Pribadi</button></span>
+            </div>
+
             <div class="meta-field">
               <label for="input-collection-title" class="field-label">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -476,27 +487,115 @@
       <div class="history-header">
         <div class="icon-orb mini">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
           </svg>
         </div>
         <div class="history-title-group">
-          <h2 class="modal-title">Riwayat Sesi Saya</h2>
-          <p class="modal-subtitle">Daftar koleksi teks yang pernah Anda buat di peramban ini.</p>
+          <h2 class="modal-title" id="history-modal-heading">Riwayat Teks & Cloud Sync</h2>
+          <p class="modal-subtitle">Akses seluruh teks yang pernah Anda buat di semua perangkat.</p>
         </div>
       </div>
 
-      <div class="history-list" id="history-items-container">
-        <!-- Rendered history items -->
+      <!-- History Mode Tabs -->
+      <div class="history-tabs-nav">
+        <button type="button" class="history-tab-btn active" id="btn-tab-cloud">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+          </svg>
+          <span>Cloud Sync (Antar-Perangkat)</span>
+        </button>
+        <button type="button" class="history-tab-btn" id="btn-tab-local">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="20" height="14" x="2" y="3" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <span>Perangkat Ini (Lokal)</span>
+        </button>
+      </div>
+
+      <!-- Cloud Sync Panel -->
+      <div id="panel-cloud-sync">
+        <!-- 1. If NOT Connected: Login/Connect Key Form -->
+        <div class="cloud-sync-box" id="cloud-connect-box">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔐</div>
+          <h3>Sambungkan Kunci Pribadi / Akun</h3>
+          <p>Gunakan satu nama kunci rahasia milik Anda (misal: <code>naufal</code>) untuk membuka semua riwayat teks di HP, tablet, atau komputer lain tanpa perlu mengingat nomor PIN satu per satu.</p>
+          
+          <div class="sync-form-grid">
+            <div class="meta-field">
+              <label class="field-label" for="input-sync-user">Kunci Akun Pribadi (Username):</label>
+              <input type="text" id="input-sync-user" class="text-input" placeholder="Contoh: naufal2024 atau nama Anda" maxlength="30">
+            </div>
+            <div class="meta-field">
+              <label class="field-label" for="input-sync-pass">Password / PIN Pelindung (Opsional):</label>
+              <input type="password" id="input-sync-pass" class="text-input" placeholder="Kosongkan jika tidak butuh password">
+              <span class="field-hint">Jika diisi, hanya yang mengetahui password ini yang bisa membuka riwayat Anda.</span>
+            </div>
+            <button type="button" class="btn-primary-glow" id="btn-submit-connect" style="margin-top: 0.5rem;">
+              <span>Hubungkan & Sinkronkan</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. If Connected: User Banner & Actions -->
+        <div id="cloud-connected-view" style="display: none;">
+          <div class="cloud-user-banner">
+            <div class="cloud-user-info">
+              <span class="sync-indicator-dot"></span>
+              <span>Kunci Akun: <strong class="cloud-user-name" id="connected-user-display">-</strong></span>
+            </div>
+            <div class="cloud-user-actions">
+              <button type="button" class="btn-subtle" id="btn-toggle-claim" title="Tautkan PIN lama yang pernah dibuat">
+                <span>+ Tautkan PIN Lama</span>
+              </button>
+              <button type="button" class="btn-subtle" id="btn-refresh-cloud" title="Segarkan data">
+                <span>🔄</span>
+              </button>
+              <button type="button" class="btn-subtle danger" id="btn-disconnect-cloud" title="Putuskan sambungan">
+                <span>Keluar</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Claim PIN Box (Hidden by default) -->
+          <div class="claim-pin-box" id="claim-pin-box" style="display: none;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">Tautkan PIN Lama:</span>
+            <input type="text" id="input-claim-pin" class="text-input uppercase" placeholder="PIN 6-digit" maxlength="10">
+            <button type="button" class="btn-action primary" id="btn-submit-claim">
+              <span>Tautkan</span>
+            </button>
+          </div>
+
+          <!-- Cloud History Items Container -->
+          <div class="history-list" id="cloud-history-items-container">
+            <!-- Dynamic cloud items -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Local History Panel -->
+      <div id="panel-local-sync" style="display: none;">
+        <div class="history-list" id="history-items-container">
+          <!-- Rendered local history items -->
+        </div>
       </div>
 
       <div class="history-footer">
+        <button type="button" class="btn-subtle" id="btn-export-history" title="Unduh cadangan riwayat ke file JSON">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Ekspor Cadangan</span>
+        </button>
         <button type="button" class="btn-subtle" id="btn-clear-history">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 6h18"></path>
             <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
           </svg>
-          <span>Hapus Semua Riwayat</span>
+          <span>Hapus Riwayat Lokal</span>
         </button>
       </div>
     </div>

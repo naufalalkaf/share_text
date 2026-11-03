@@ -6,7 +6,10 @@ import QRCode from 'qrcode';
 import {
   createShare,
   getShareByPin,
-  cleanupExpired
+  cleanupExpired,
+  connectAccount,
+  getUserShares,
+  claimPin
 } from './database.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -44,7 +47,7 @@ function getBaseUrl(req) {
  */
 app.post('/api/shares', async (req, res) => {
   try {
-    const { title, pinCode, expiryHours, cards } = req.body;
+    const { title, pinCode, expiryHours, cards, syncKey, syncPassword } = req.body;
 
     if (!cards || !Array.isArray(cards) || cards.length === 0) {
       return res.status(400).json({
@@ -53,7 +56,6 @@ app.post('/api/shares', async (req, res) => {
       });
     }
 
-    // Filter out completely empty cards, or ensure at least one has content
     const validCards = cards.filter(c => c && (c.content?.trim() || c.title?.trim()));
     if (validCards.length === 0) {
       return res.status(400).json({
@@ -72,13 +74,14 @@ app.post('/api/shares', async (req, res) => {
       pinCode,
       title: title || 'Koleksi Teks',
       expiresAt,
-      cards: validCards
+      cards: validCards,
+      syncKey,
+      syncPassword
     });
 
     const baseUrl = getBaseUrl(req);
     const shareUrl = `${baseUrl}/?pin=${shareResult.pin}`;
 
-    // Generate QR code as data URL
     const qrDataUrl = await QRCode.toDataURL(shareUrl, {
       margin: 2,
       width: 250,
@@ -153,6 +156,73 @@ app.get('/api/shares/:pin', async (req, res) => {
       success: false,
       message: 'Terjadi kesalahan saat memuat teks.'
     });
+  }
+});
+
+/**
+ * POST /api/auth/connect
+ * Connect or create user account / sync key
+ */
+app.post('/api/auth/connect', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username) {
+      return res.status(400).json({ success: false, message: 'Kunci Akun / Username wajib diisi.' });
+    }
+    const result = connectAccount(username, password || '');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * GET /api/user/shares
+ * Retrieve user cloud shares
+ */
+app.get('/api/user/shares', (req, res) => {
+  try {
+    const { username, password } = req.query;
+    if (!username) {
+      return res.status(400).json({ success: false, message: 'Username parameter required' });
+    }
+    const result = getUserShares(username, password || '');
+    const baseUrl = getBaseUrl(req);
+    const sharesWithLinks = result.shares.map(s => ({
+      ...s,
+      shareUrl: `${baseUrl}/?pin=${s.pin}`
+    }));
+    res.json({
+      success: true,
+      data: {
+        username: result.username,
+        count: sharesWithLinks.length,
+        shares: sharesWithLinks
+      }
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * POST /api/user/claim
+ * Claim existing PIN to user account
+ */
+app.post('/api/user/claim', (req, res) => {
+  try {
+    const { username, password, pin } = req.body;
+    if (!username || !pin) {
+      return res.status(400).json({ success: false, message: 'Username dan PIN wajib diisi.' });
+    }
+    const result = claimPin(username, password || '', pin);
+    res.json({
+      success: true,
+      message: `PIN "${result.pin}" (${result.title || 'Koleksi Teks'}) berhasil ditautkan ke akun ${username}!`,
+      data: result
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
   }
 });
 
